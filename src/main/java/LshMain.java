@@ -1,30 +1,29 @@
 import distance.ComparatorInterface;
 import distance.DistanceComputer;
+import initialization.Initializer;
+import lombok.extern.slf4j.Slf4j;
 import structures.HashTable;
 import structures.Vector;
+import java.io.*;
+import java.util.*;
 
-import java.io.BufferedReader;
-import java.io.File;
-
-import java.io.FileReader;
-import java.io.IOException;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
-
+@Slf4j
 public class LshMain {
-    //TODO fill these sets
-    private List<String[]> trainingSet;
-    private List<String[]> validationSet;
-    private List<String[]> testSet;
-    private List<String[]> columnNames;
+
+    private static List<Vector> trainingDataset;
+    private static List<Vector> validationDataset;
+    private static List<Vector> testDataset;
+    //private List<String[]> columnNames;
+
+
+    //the hashSize,kNeighboursSize,numHashTables are just some random numbers.
+    //TODO we should find some values that perform good on the verification data set
+    private static final int hashSize = 50;
+    private static final int kNeighboursSize = 4;
+    private static final int numHashTables = 4;
 
     public static List<Vector> createRandomMatrix(int l, int d) {
-        List<Vector> randomMatrix = new ArrayList<Vector>();
+        List<Vector> randomMatrix = new ArrayList<>();
         double value;
         Random rand = new Random();
         double cnst = Math.sqrt(3);
@@ -48,8 +47,8 @@ public class LshMain {
 
     public static List<Vector> readCSVFile(final String fileName, final String separator) {
 
-        final List<String[]> data = new ArrayList<String[]>();
-        FileReader fileReader = null;
+        final List<String[]> data = new ArrayList<>();
+        FileReader fileReader;
         BufferedReader in = null;
         try {
             final File file = new File(fileName);
@@ -83,7 +82,7 @@ public class LshMain {
                 }
             }
         }
-        List<Vector> result = new ArrayList<Vector>();
+        List<Vector> result = new ArrayList<>();
         boolean isFirstColumnKey = true;
         int dimensions = isFirstColumnKey ? data.get(0).length - 1 : data.get(0).length;
         int startIndex = isFirstColumnKey ? 1 : 0;
@@ -99,52 +98,63 @@ public class LshMain {
             result.add(item);
         }
         return result;
-
     }
 
-    public static void main(String[] args) {
-        List<Vector> dataset = readCSVFile("fma_metadata/features.csv", ",");
-        //TODO these two rows are not needed when the split of train/validation/test data is done.
-        Collections.shuffle(dataset);
-        List<Vector> validationDataset = dataset.subList(0, 800);
-
-        int numValidationData = validationDataset.size();
-        //the hashSize,kNeighboursSize,numHashTables are just some random numbers.
-        //TODO we should find some values that perform good on the verification data set
-        int numObservations = dataset.size();
-        int numFeatures = dataset.get(0).getDimensions();
-        int hashSize = 50;
-        int kNeighboursSize = 4;
-        int numHashTables = 4;
-        //creation of hash tables
-        List<Vector> randomMatrix = createRandomMatrix(hashSize, numFeatures);
-        List<HashTable> tables = new ArrayList<HashTable>();
+    private static void initializeAndCalculateHash (List<HashTable> hashtables, int numFeatures) {
         for (int n = 0; n < numHashTables; n++) {
-            HashTable hashTable = new HashTable(randomMatrix);
-            for (Vector vector : dataset) {
+            HashTable hashTable = new HashTable(createRandomMatrix(hashSize, numFeatures));
+            for (Vector vector : trainingDataset) {
                 hashTable.add(vector);
             }
-            tables.add(hashTable);
+            hashtables.add(hashTable);
         }
+    }
 
-        //part b) of the algorithm in assignment (this could be done in a separate function not in Main)
+    private static void findCandidatesAndCalculateDistance(List<HashTable> tables, String distanceType) {
         for (Vector queryVec : validationDataset) {
-            Set<Vector> candidateSet = new HashSet<Vector>();
+            Set<Vector> candidateSet = new HashSet<>();
             for (HashTable table : tables) {
                 List<Vector> v = table.query(queryVec);
                 candidateSet.addAll(v);
             }
+            //log.info("---------------------------------------------");
+            //log.info("Candidates for vector: " + queryVec.getKey());
+            //candidateSet.forEach(c ->  log.info(c.getKey()));
+            //log.info("---------------------------------------------");
+
             //part c) of the algorithm in assignment
             //TODO part of assignment - think about how to treat cases where there are less then k music tracks found as similar ti
-            List<Vector> candidates = new ArrayList<Vector>(candidateSet);
-            DistanceComputer measure = new DistanceComputer("Euclidean");
+            List<Vector> candidates = new ArrayList<>(candidateSet);
+            DistanceComputer measure = new DistanceComputer(distanceType);
             ComparatorInterface dc = new ComparatorInterface(queryVec, measure);
             candidates.sort(dc);
             if (candidates.size() > kNeighboursSize) {
                 candidates = candidates.subList(0, kNeighboursSize);
             }
-            System.out.println(candidates.size());
+            log.info(String.valueOf(candidates.size()));
         }
+    }
+
+
+
+    public static void main(String[] args) {
+        //Initialize train, validation, test datasets
+        final Initializer initializer = new Initializer();
+        trainingDataset = initializer.initializeSplitDataSets("train.json");
+        validationDataset = initializer.initializeSplitDataSets("validate.json");
+        testDataset = initializer.initializeSplitDataSets("test.json");
+        //List<Vector> dataset = readCSVFile("fma_metadata/features.csv", ",");
+
+        final int numValidationData = validationDataset.size();
+        final int numObservations = trainingDataset.size();
+        final int numFeatures = trainingDataset.get(0).getDimensions();
+
+        //creation of hash tables
+        List<HashTable> tables = new ArrayList<>();
+        initializeAndCalculateHash(tables, numFeatures);
+
+        //part b) of the algorithm in assignment (this could be done in a separate function not in Main)
+        findCandidatesAndCalculateDistance(tables, "Euclidean");
 
     }
 }

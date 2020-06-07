@@ -11,8 +11,8 @@ import java.lang.reflect.Type;
 import java.util.Map;
 
 public class JsonLoader {
-    private Gson gson;
-    private Type mapType;
+    private final Gson gson;
+    private final Type mapType;
 
     public JsonLoader() {
         gson = new GsonBuilder()
@@ -35,9 +35,7 @@ public class JsonLoader {
         Map<String, Map<String, Double>> validate = jsonLoader.loadJson(root + "validate.json");
         validate.forEach((id, features) -> {
             System.out.println(id);
-            features.forEach((name, value) -> {
-                System.out.printf("\"%s\": %f ", name, value);
-            });
+            features.forEach((name, value) -> System.out.printf("\"%s\": %f ", name, value));
             System.out.println();
         });
     }

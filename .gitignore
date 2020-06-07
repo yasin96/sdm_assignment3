@@ -1,3 +1,4 @@
 /fma_metadata/*
 /.idea/*
 /target/*
+*.json

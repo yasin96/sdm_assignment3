@@ -3,7 +3,7 @@ package distance;
 import structures.Vector;
 
 public class DistanceComputer {
-    private String distanceFamily;
+    private final String distanceFamily;
 
     public DistanceComputer(String distanceFamily) {
         this.distanceFamily = distanceFamily;

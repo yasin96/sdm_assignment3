@@ -30,7 +30,7 @@ public class JsonLoader {
     }
 
     public static void main(String[] args) {
-        String root = "C:\\Users\\pavao\\Documents\\erasmus\\Courses\\SDM\\assignment3\\fma_metadata\\split\\";
+        String root = "fmapreproc\\split\\";
         JsonLoader jsonLoader = new JsonLoader();
         Map<String, Map<String, Double>> validate = jsonLoader.loadJson(root + "validate.json");
         validate.forEach((id, features) -> {

@@ -46,7 +46,7 @@ def store_to_json(df, path):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        root = "C:\\Users\\pavao\\Documents\\erasmus\\Courses\\SDM\\assignment3\\fma_metadata\\"
+        root = "D:\\Fakulteti\\SDM\\fma_metadata\\"
     else:
         root = sys.argv[1]
     train_ids, test_ids, validate_ids = split_ids(root + "tracks.csv")
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     print("validate")
     print(validate.shape)
     # print(validate.describe())
-    split_root = root + "split\\"
+    split_root = os.path.dirname(__file__) + "\\split\\"
     if not os.path.exists(split_root):
         os.makedirs(split_root)
     store_to_json(train, split_root + "train.json")

@@ -13,6 +13,7 @@ public class LshMain {
     private static List<Vector> trainingDataset;
     private static List<Vector> validationDataset;
     private static List<Vector> testDataset;
+    private static List<Vector> trainingAndValidationDataset;
 
     //the hashSize,kNeighboursSize,numHashTables are just some random numbers.
     //TODO we should find some values that perform good on the verification data set
@@ -44,19 +45,20 @@ public class LshMain {
     }
 
 
-    private static void initializeAndCalculateHash (List<HashTable> hashtables, int numFeatures) {
+    private static void initializeAndCalculateHash (List<HashTable> hashtables, int numFeatures, List<Vector> dataset) {
         for (int n = 0; n < numHashTables; n++) {
             HashTable hashTable = new HashTable(createRandomMatrix(hashSize, numFeatures));
-            for (Vector vector : trainingDataset) {
+            for (Vector vector : dataset) {
                 hashTable.add(vector);
+ 
             }
             hashtables.add(hashTable);
         }
     }
 
-    private static void findCandidatesAndCalculateDistance(List<HashTable> tables, String distanceType) {
-        for (Vector queryVec : validationDataset) {
-        	System.out.println(queryVec.get(0));
+    private static HashMap<String,List<Vector>> findKNearestNeighbours(List<HashTable> tables, String distanceType,List<Vector> dataset) {
+    	HashMap<String,List<Vector>> neighbours_map=new HashMap<String,List<Vector>>();
+        for (Vector queryVec : dataset) {       	
             Set<Vector> candidateSet = new HashSet<>();
             for (HashTable table : tables) {
                 List<Vector> v = table.query(queryVec);                 
@@ -70,14 +72,16 @@ public class LshMain {
 
             //part c) of the algorithm in assignment
             //TODO part of assignment - think about how to treat cases where there are less then k music tracks found as similar ti
-            List<Vector> candidates = new ArrayList<>(candidateSet);
+            List<Vector> neighbours = new ArrayList<>(candidateSet);
             DistanceComputer measure = new DistanceComputer(distanceType);
             ComparatorInterface dc = new ComparatorInterface(queryVec, measure);
-            candidates.sort(dc);
-            if (candidates.size() > kNeighboursSize) {
-                candidates = candidates.subList(0, kNeighboursSize);
+            neighbours.sort(dc);
+            if (neighbours.size() > kNeighboursSize) {
+            	neighbours = neighbours.subList(0, kNeighboursSize);
             }
+            neighbours_map.put(queryVec.getKey(),neighbours);
         }
+        return neighbours_map;
     }
 
 
@@ -88,17 +92,21 @@ public class LshMain {
         trainingDataset = initializer.initializeSplitDataSets("fmapreproc\\split\\train.json");
         validationDataset = initializer.initializeSplitDataSets("fmapreproc\\split\\validate.json");
         testDataset = initializer.initializeSplitDataSets("fmapreproc\\split\\test.json");
-
+        //this is needed for "retrain your algorithm with these parameter choices using the training and validation data set as training data"
+        trainingAndValidationDataset = new ArrayList<Vector>(trainingDataset);
+        trainingAndValidationDataset.addAll(validationDataset);
+   
         final int numValidationData = validationDataset.size();
         final int numObservations = trainingDataset.size();
         final int numFeatures = trainingDataset.get(0).getDimensions();
 
         //creation of hash tables
         List<HashTable> tables = new ArrayList<>();
-        initializeAndCalculateHash(tables, numFeatures);
-
-
-        findCandidatesAndCalculateDistance(tables, "Euclidean");
+        initializeAndCalculateHash(tables, numFeatures,trainingDataset);
+        HashMap<String,List<Vector>> neighbours_map=findKNearestNeighbours(tables, "Euclidean",validationDataset);
+      //TODO another function that uses this candidates_map to predict the genre as "the the majority genre of its k-nearestneighbours"
+      //TODO evaluation of the classification accurancy
+      //TODO call initializeAndCalculateHash for trainingAndValidationDataset and findKNearestNeighbours (together with genre prediction) for testDataset
 
     }
 }

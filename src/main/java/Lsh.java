@@ -13,16 +13,17 @@ import java.util.stream.Collectors;
 public class Lsh {
 
     //the hashSize,kNeighboursSize,numHashTables are just some random numbers.
-    //TODO we should find some values that perform good on the verification data set
 
-    int hashSize = 50;
-    int kNeighboursSize = 4;
-    int numHashTables = 4;
+    int hashSize;
+    int kNeighboursSize;
+    int numHashTables;
+    String distanceType;
 
-    public Lsh(int hashSize, int kNeighboursSize, int numHashTables) {
+    public Lsh(int hashSize, int kNeighboursSize, int numHashTables, String distanceType) {
         this.hashSize = hashSize;
         this.kNeighboursSize = kNeighboursSize;
         this.numHashTables = numHashTables;
+        this.distanceType = distanceType;
     }
 
     public List<Vector> createRandomMatrix(int l, int d) {
@@ -97,25 +98,45 @@ public class Lsh {
                             HashMap<String, Integer> counts = new HashMap<>();
                             new HashSet<>(neighbours).forEach(s -> counts.put(s, 0));
                             neighbours.forEach(genre -> counts.put(genre, counts.get(genre) + 1));
-//                            System.out.println(genres.get(e.getKey()));
-//                            System.out.println(neighbours.toString());
                             String genre;
                             if (neighbours.isEmpty()) {
                                 genre = "Outlier";
                             } else {
                                 genre = Collections.max(counts.entrySet(), Map.Entry.comparingByValue()).getKey();
                             }
-//                            System.out.println(genre);
                             return genre;
                         }
                 ));
         long datasetSize = predictedGenres.size();
+        Map<GenrePair, Integer> confusionMatrix = new HashMap<>();
+        Set<String> genresSet = new HashSet<>();
         long correctPredictions = predictedGenres.entrySet().stream().filter(stringStringEntry -> {
             String trueGenre = genres.get(stringStringEntry.getKey());
-            return trueGenre.equals(stringStringEntry.getValue());
+            genresSet.add(trueGenre);
+            String predictedGenre = stringStringEntry.getValue();
+            GenrePair gp = new GenrePair(trueGenre, predictedGenre);
+            if (!confusionMatrix.containsKey(gp)) {
+                confusionMatrix.put(gp, 0);
+            }
+            confusionMatrix.put(gp, confusionMatrix.get(gp) + 1);
+            return trueGenre.equals(predictedGenre);
         }).count();
-//        System.out.println(datasetSize);
-//        System.out.println(correctPredictions);
+        List<String> genreList = new ArrayList<>(genresSet);
+        List<String> predictedGenreList = new ArrayList<>(genreList);
+        predictedGenreList.add("Outlier");
+        System.out.printf("%13s ", "");
+        for (String genre : predictedGenreList) {
+            System.out.printf("%13s ", genre);
+        }
+        System.out.println();
+        for (String genre : genreList) {
+            System.out.printf("%13s ", genre);
+            for (String pGenre : predictedGenreList) {
+                GenrePair gp = new GenrePair(genre, pGenre);
+                System.out.printf("%13d ", confusionMatrix.getOrDefault(gp, 0));
+            }
+            System.out.println();
+        }
         return correctPredictions / (datasetSize * 1.0f);
     }
 
@@ -123,16 +144,18 @@ public class Lsh {
         final int numFeatures = trainDataset.get(0).getDimensions();
         List<HashTable> tables = new ArrayList<>();
         initializeAndCalculateHash(tables, numFeatures, trainDataset);
-        HashMap<String, List<Vector>> neighbours_map = findKNearestNeighbours(tables, "Euclidean", testDataset);
+        HashMap<String, List<Vector>> neighbours_map = findKNearestNeighbours(tables, distanceType, testDataset);
         System.out.println("Finished finding neighbours");
         return getAccuracy(neighbours_map, genres);
     }
 
+
     public static void main(String[] args) {
-        int hashSize = 50;
-        int kNeighboursSize = 4;
-        int numHashTables = 4;
-        Lsh lsh = new Lsh(hashSize, kNeighboursSize, numHashTables);
+        int hashSize = 40;
+        int kNeighboursSize = 25;
+        int numHashTables = 6;
+        String distanceType = "CityBlock";
+        Lsh lsh = new Lsh(hashSize, kNeighboursSize, numHashTables, distanceType);
         //Initialize train, validation, test datasets
         final Initializer initializer = new Initializer();
         List<Vector> trainingDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\train.json");
@@ -140,10 +163,34 @@ public class Lsh {
         List<Vector> testDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\test.json");
         JsonLoader jsonLoader = new JsonLoader();
         Map<String, String> genres = jsonLoader.loadGenreJson("fma_metadata\\split\\genres.json");
-        double accuracy = lsh.trainAndTest(trainingDataset, validationDataset, genres);
+        List<Vector> trainAndValidationDataset = new LinkedList<>(trainingDataset);
+        trainAndValidationDataset.addAll(validationDataset);
+        double accuracy = lsh.trainAndTest(trainAndValidationDataset, testDataset, genres);
         System.out.printf("Accuracy: %.2f%n%%", accuracy * 100);
 
     }
 
+    private static class GenrePair {
+        String trueGenre;
+        String predictedGenre;
 
+        public GenrePair(String trueGenre, String predictedGenre) {
+            this.trueGenre = trueGenre;
+            this.predictedGenre = predictedGenre;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            GenrePair genrePair = (GenrePair) o;
+            return Objects.equals(trueGenre, genrePair.trueGenre) &&
+                    Objects.equals(predictedGenre, genrePair.predictedGenre);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(trueGenre, predictedGenre);
+        }
+    }
 }

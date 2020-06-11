@@ -27,7 +27,6 @@ public class HashTable implements Serializable {
 
     //If the result of the dot product is positive, assign the bit value as 1 else 0
     //hash function used in https://towardsdatascience.com/locality-sensitive-hashing-for-music-search-f2f1940ace23
-    //I am not 100% sure if we should use this hash function or use euclidean hash function,cosine etc..
     public String hash_value(Vector vec) {
         StringBuilder hashValue = new StringBuilder();
         for (Vector matrix : randomMatrix) {

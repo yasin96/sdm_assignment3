@@ -51,7 +51,7 @@ def store_to_json(df, path):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        root = "C:\\Users\\pavao\\Documents\\erasmus\\Courses\\SDM\\assignment3\\fma_metadata\\"
+        root = "../fma_metadata\\"
     else:
         root = sys.argv[1]
     small, train_ids, test_ids, validate_ids = split_ids(root + "tracks.csv")

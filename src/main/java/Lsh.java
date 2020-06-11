@@ -6,26 +6,26 @@ import lombok.extern.slf4j.Slf4j;
 import structures.HashTable;
 import structures.Vector;
 
-import java.io.*;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class LshMain {
-
-    private static List<Vector> trainingDataset;
-    private static List<Vector> validationDataset;
-    private static List<Vector> testDataset;
-    private static List<Vector> trainingAndValidationDataset;
+public class Lsh {
 
     //the hashSize,kNeighboursSize,numHashTables are just some random numbers.
     //TODO we should find some values that perform good on the verification data set
-    private static final int hashSize = 50;
-    private static final int kNeighboursSize = 4;
-    private static final int numHashTables = 4;
 
-    public static List<Vector> createRandomMatrix(int l, int d) {
+    int hashSize = 50;
+    int kNeighboursSize = 4;
+    int numHashTables = 4;
+
+    public Lsh(int hashSize, int kNeighboursSize, int numHashTables) {
+        this.hashSize = hashSize;
+        this.kNeighboursSize = kNeighboursSize;
+        this.numHashTables = numHashTables;
+    }
+
+    public List<Vector> createRandomMatrix(int l, int d) {
         List<Vector> randomMatrix = new ArrayList<>();
         double value;
         Random rand = new Random();
@@ -49,7 +49,7 @@ public class LshMain {
     }
 
 
-    private static void initializeAndCalculateHash(List<HashTable> hashtables, int numFeatures, List<Vector> dataset) {
+    private void initializeAndCalculateHash(List<HashTable> hashtables, int numFeatures, List<Vector> dataset) {
         for (int n = 0; n < numHashTables; n++) {
             HashTable hashTable = new HashTable(createRandomMatrix(hashSize, numFeatures));
             for (Vector vector : dataset) {
@@ -60,7 +60,7 @@ public class LshMain {
         }
     }
 
-    private static HashMap<String, List<Vector>> findKNearestNeighbours(List<HashTable> tables, String distanceType, List<Vector> dataset) {
+    private HashMap<String, List<Vector>> findKNearestNeighbours(List<HashTable> tables, String distanceType, List<Vector> dataset) {
         HashMap<String, List<Vector>> neighbours_map = new HashMap<String, List<Vector>>();
         for (Vector queryVec : dataset) {
             Set<Vector> candidateSet = new HashSet<>();
@@ -88,31 +88,7 @@ public class LshMain {
         return neighbours_map;
     }
 
-
-    public static void main(String[] args) {
-        //Initialize train, validation, test datasets
-        final Initializer initializer = new Initializer();
-        trainingDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\train.json");
-        validationDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\validate.json");
-        testDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\test.json");
-        //this is needed for "retrain your algorithm with these parameter choices using the training and validation data set as training data"
-        trainingAndValidationDataset = new ArrayList<Vector>(trainingDataset);
-        trainingAndValidationDataset.addAll(validationDataset);
-
-        final int numValidationData = validationDataset.size();
-        final int numObservations = trainingDataset.size();
-        final int numFeatures = trainingDataset.get(0).getDimensions();
-
-        //creation of hash tables
-        List<HashTable> tables = new ArrayList<>();
-        initializeAndCalculateHash(tables, numFeatures, trainingDataset);
-        HashMap<String, List<Vector>> neighbours_map = findKNearestNeighbours(tables, "Euclidean", validationDataset);
-        //TODO another function that uses this candidates_map to predict the genre as "the the majority genre of its k-nearestneighbours"
-        //TODO evaluation of the classification accurancy
-        //TODO call initializeAndCalculateHash for trainingAndValidationDataset and findKNearestNeighbours (together with genre prediction) for testDataset
-        System.out.println("Finished finding neighbours");
-        JsonLoader jsonLoader = new JsonLoader();
-        Map<String, String> genres = jsonLoader.loadGenreJson("fma_metadata\\split\\genres.json");
+    public double getAccuracy(HashMap<String, List<Vector>> neighbours_map, Map<String, String> genres) {
         Map<String, String> predictedGenres = neighbours_map.entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -138,10 +114,36 @@ public class LshMain {
             String trueGenre = genres.get(stringStringEntry.getKey());
             return trueGenre.equals(stringStringEntry.getValue());
         }).count();
-        System.out.println(datasetSize);
-        System.out.println(correctPredictions);
-        double accuracy = correctPredictions / (datasetSize * 1.0f);
-        System.out.printf("Accuracy: %s%n", accuracy);
+//        System.out.println(datasetSize);
+//        System.out.println(correctPredictions);
+        return correctPredictions / (datasetSize * 1.0f);
+    }
+
+    public double trainAndTest(List<Vector> trainDataset, List<Vector> testDataset, Map<String, String> genres) {
+        final int numFeatures = trainDataset.get(0).getDimensions();
+        List<HashTable> tables = new ArrayList<>();
+        initializeAndCalculateHash(tables, numFeatures, trainDataset);
+        HashMap<String, List<Vector>> neighbours_map = findKNearestNeighbours(tables, "Euclidean", testDataset);
+        System.out.println("Finished finding neighbours");
+        return getAccuracy(neighbours_map, genres);
+    }
+
+    public static void main(String[] args) {
+        int hashSize = 50;
+        int kNeighboursSize = 4;
+        int numHashTables = 4;
+        Lsh lsh = new Lsh(hashSize, kNeighboursSize, numHashTables);
+        //Initialize train, validation, test datasets
+        final Initializer initializer = new Initializer();
+        List<Vector> trainingDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\train.json");
+        List<Vector> validationDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\validate.json");
+        List<Vector> testDataset = initializer.initializeSplitDataSets("fma_metadata\\split\\test.json");
+        JsonLoader jsonLoader = new JsonLoader();
+        Map<String, String> genres = jsonLoader.loadGenreJson("fma_metadata\\split\\genres.json");
+        double accuracy = lsh.trainAndTest(trainingDataset, validationDataset, genres);
+        System.out.printf("Accuracy: %.2f%n%%", accuracy * 100);
 
     }
+
+
 }
